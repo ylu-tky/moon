@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太陽系微型模型 (慢速版)</title>
+    <style>
+        body {
+            background-color: #0b1121;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        h1 { margin-bottom: 30px; color: #93c5fd; }
+
+        .dashboard {
+            display: flex;
+            gap: 50px;
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 380px;
+        }
+
+        .panel h3 {
+            margin-top: 0;
+            color: #cbd5e1;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* 左側太空視角 */
+        .space-view {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            margin-top: 20px;
+        }
+
+        .sun {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 50px;
+            text-shadow: 0 0 40px #fde047;
+            z-index: 10;
+        }
+
+        .earth-orbit-path {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 260px;
+            height: 260px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+        }
+
+        #earth-system {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+        }
+
+        .moon-orbit-path {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            border: 1px dotted rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+        }
+
+        #earth {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            font-size: 35px;
+            transform: translate(-50%, -50%); 
+        }
+
+        #orbit-moon {
+            position: absolute;
+            font-size: 18px;
+            transform: translate(-50%, -50%); 
+        }
+
+        /* 右側地球視角 */
+        .phase-view {
+            justify-content: center;
+        }
+
+        #phase-emoji {
+            font-size: 140px;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+            margin: 10px 0;
+        }
+
+        #phase-text {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #f8fafc;
+        }
+
+        #lunar-date {
+            font-size: 20px;
+            color: #fde047; 
+            margin-bottom: 25px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            background-color: rgba(253, 224, 71, 0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 18px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+        }
+
+        button:hover { background-color: #2563eb; }
+        button.paused { background-color: #ef4444; }
+        button.paused:hover { background-color: #dc2626; }
+    </style>
+</head>
+<body>
+
+    <h1>太陽系微型動態模型</h1>
+
+    <div class="dashboard">
+        <div class="panel">
+            <h3>太空俯瞰視角 (加入公轉與自轉)</h3>
+            <div class="space-view">
+                <div class="earth-orbit-path"></div>
+                <div class="sun">☀️</div>
+                
+                <div id="earth-system">
+                    <div class="moon-orbit-path"></div>
+                    <div id="earth">🌍</div>
+                    <div id="orbit-moon">🌑</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel phase-view">
+            <h3>地球視角 (我們看到的月亮)</h3>
+            <div id="phase-emoji">🌑</div>
+            <div id="phase-text">新月 (朔)</div>
+            <div id="lunar-date">農曆大約：初一 (看不見月亮)</div> 
+            <button id="toggle-btn">播放動畫 ▶</button>
+        </div>
+    </div>
+
+    <script>
+        const earthSystem = document.getElementById("earth-system");
+        const earth = document.getElementById("earth");
+        const orbitMoon = document.getElementById("orbit-moon");
+        const phaseEmoji = document.getElementById("phase-emoji");
+        const phaseText = document.getElementById("phase-text");
+        const lunarDateText = document.getElementById("lunar-date");
+        const toggleBtn = document.getElementById("toggle-btn");
+
+        let earthAngle = 0;   
+        let moonAngle = 180;  
+        let earthRotation = 0; 
+
+        let isPlaying = false;
+        let animationFrameId;
+
+        const sunX = 175; 
+        const sunY = 175;
+        const radiusEarth = 130;  
+        const radiusMoon = 35;    
+        const systemCenter = 40;  
+
+        function getPhaseInfo(relativeAngle) {
+            let deg = relativeAngle % 360;
+            if (deg < 0) deg += 360;
+
+            if (deg < 22.5 || deg >= 337.5) return { e: "🌑", n: "新月 (朔)", d: "農曆大約：初一 (看不見月亮)" };
+            if (deg < 67.5) return { e: "🌒", n: "眉月 (蛾眉月)", d: "農曆大約：初二 至 初六" };
+            if (deg < 112.5) return { e: "🌓", n: "上弦月", d: "農曆大約：初七 或 初八" };
+            if (deg < 157.5) return { e: "🌔", n: "盈凸月", d: "農曆大約：初九 至 十四" };
+            if (deg < 202.5) return { e: "🌕", n: "滿月 (望)", d: "農曆大約：十五 或 十六" };
+            if (deg < 247.5) return { e: "🌖", n: "虧凸月", d: "農曆大約：十七 至 二十一" };
+            if (deg < 292.5) return { e: "🌗", n: "下弦月", d: "農曆大約：二十二 或 二十三" };
+            return { e: "🌘", n: "殘月", d: "農曆大約：二十四 至 月底" };
+        }
+
+        function updateAnimation() {
+            if (isPlaying) {
+                // --- 這裡就是控制速度的地方 ---
+                // 將數值調小即可放慢速度，若未來想再微調，修改這三個數字即可
+                earthAngle += 0.05;       // 原為 0.15 (地球公轉速度)
+                moonAngle += 0.61;        // 原為 1.85 (月球公轉速度)
+                earthRotation += 1.3;     // 原為 4.00 (地球自轉速度)
+                // -----------------------------
+                
+                const eRadian = earthAngle * (Math.PI / 180);
+                const earthX = sunX + radiusEarth * Math.cos(eRadian);
+                const earthY = sunY - radiusEarth * Math.sin(eRadian); 
+
+                earthSystem.style.left = `${earthX}px`;
+                earthSystem.style.top = `${earthY}px`;
+
+                earth.style.transform = `translate(-50%, -50%) rotate(${earthRotation}deg)`;
+
+                const mRadian = moonAngle * (Math.PI / 180);
+                const moonX = systemCenter + radiusMoon * Math.cos(mRadian);
+                const moonY = systemCenter - radiusMoon * Math.sin(mRadian);
+
+                orbitMoon.style.left = `${moonX}px`;
+                orbitMoon.style.top = `${moonY}px`;
+
+                let relativePhaseAngle = (moonAngle - earthAngle - 180) % 360;
+                
+                const phase = getPhaseInfo(relativePhaseAngle);
+
+                orbitMoon.textContent = phase.e;
+                phaseEmoji.textContent = phase.e;
+                phaseText.textContent = phase.n;
+                lunarDateText.textContent = phase.d;
+            }
+            
+            animationFrameId = requestAnimationFrame(updateAnimation);
+        }
+
+        toggleBtn.addEventListener("click", () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                toggleBtn.textContent = "暫停動畫 ⏸";
+                toggleBtn.classList.add("paused");
+                if (!animationFrameId) updateAnimation(); 
+            } else {
+                toggleBtn.textContent = "播放動畫 ▶";
+                toggleBtn.classList.remove("paused");
+            }
+        });
+
+        updateAnimation(); 
+        isPlaying = false; 
+    </script>
+</body>
+</html>
